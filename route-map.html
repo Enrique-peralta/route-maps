@@ -132,6 +132,24 @@ const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/p
 const MAPBOX_TOKEN = 'pk.eyJ1IjoicG9zdGFsc291bmRzIiwiYSI6ImNtamM1cTR6YzBsbXUzZHB5NTRvbDV4aTIifQ.9KaoFRtAWzKkqeOpyA0SgA';
 const MAPBOX_STYLE = 'mapbox://styles/postalsounds/cmmw7mtb7000x01sa0ifddo9w';
 
+const SUPPORTED_LANGUAGES = ['es', 'en'];
+const DEFAULT_LANGUAGE = 'es';
+
+function detectLanguage() {
+  const candidates = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language];
+  for (const raw of candidates) {
+    if (!raw) continue;
+    const code = String(raw).toLowerCase().split(/[-_]/)[0];
+    if (SUPPORTED_LANGUAGES.includes(code)) return code;
+  }
+  return DEFAULT_LANGUAGE;
+}
+
+function localizedField(base, translated, lang) {
+  if (lang !== 'es' && translated && translated.trim()) return translated.trim();
+  return base;
+}
+
 function parseCSV(text) {
   const lines = [];
   let current = '';
@@ -188,6 +206,8 @@ function hideStatus() {
 }
 
 async function init() {
+  const lang = detectLanguage();
+
   showStatus('Cargando datos...');
   const params = new URLSearchParams(window.location.search);
   const routeParam = params.get('route');
@@ -216,7 +236,9 @@ async function init() {
       lat, lng,
       id: row.ID || '',
       name: row.name || 'Sin nombre',
+      name_en: row.name_en || '',
       description: row.description || '',
+      description_en: row.description_en || '',
       url: row.url || '',
       embed: row.embed || ''
     });
@@ -275,8 +297,8 @@ async function init() {
         let html = '';
         if (spot.url) html += '<img src="' + spot.url + '" class="popup-image" onerror="this.style.display=\'none\'">';
         html += '<div class="popup-text-container">';
-        html += '<h3 class="popup-title">' + (index + 1) + '. ' + spot.name + '</h3>';
-        html += '<p class="popup-desc">' + spot.description + '</p>';
+        html += '<h3 class="popup-title">' + (index + 1) + '. ' + localizedField(spot.name, spot.name_en, lang) + '</h3>';
+        html += '<p class="popup-desc">' + localizedField(spot.description, spot.description_en, lang) + '</p>';
         html += '</div>';
         if (spot.embed) html += '<div class="popup-embed">' + spot.embed + '</div>';
         new mapboxgl.Popup({ offset: 18, maxWidth: '320px' }).setLngLat([spot.lng, spot.lat]).setHTML(html).addTo(map);
