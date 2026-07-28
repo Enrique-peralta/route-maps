@@ -618,8 +618,12 @@ function formatDistance(meters) {
 }
 
 function formatDuration(seconds) {
-  const minutes = Math.max(1, Math.round(seconds / 60));
-  return minutes + ' min';
+  const totalMinutes = Math.max(1, Math.round(seconds / 60));
+  if (totalMinutes <= 60) return totalMinutes + ' min';
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours + ' h' + (minutes ? ' ' + minutes + ' min' : '');
 }
 
 function renderNextInstruction(route, lang) {
