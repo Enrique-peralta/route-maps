@@ -8,7 +8,7 @@
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.15.0/mapbox-gl.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jost:wght@600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=arrow_back,close,directions,directions_car,directions_walk,my_location,search">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=arrow_back,close,directions,directions_car,directions_walk,fullscreen,fullscreen_exit,my_location,search">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
@@ -62,7 +62,7 @@
 
   /* Contador de progreso ("3 / 12") mientras la ruta guiada está activa */
   .postal-route-progress {
-    position: absolute; z-index: 4; top: 14px; right: 14px;
+    position: absolute; z-index: 4; top: 64px; right: 14px;
     padding: 8px 12px; border-radius: 999px;
     background: rgba(34, 35, 32, 0.52); color: #E2E2D8;
     backdrop-filter: blur(8px);
@@ -71,6 +71,21 @@
     box-shadow: 0 4px 16px rgba(0,0,0,0.18);
   }
   .postal-route-progress[hidden] { display: none !important; }
+
+  /* Botón de pantalla completa: mismo estilo "glass" que el botón atrás/filtro */
+  .postal-fullscreen-btn {
+    position: absolute; z-index: 4; top: 14px; right: 14px;
+    width: 42px; height: 42px; border: none; border-radius: 12px;
+    background: rgba(34, 35, 32, 0.52); color: #E2E2D8;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform 0.15s ease, background 0.15s ease;
+  }
+  .postal-fullscreen-btn:hover { background: rgba(34, 35, 32, 0.64); transform: translateY(-1px); }
+  .postal-fullscreen-btn:active { transform: translateY(0); }
+  .postal-fullscreen-btn .material-symbols-outlined { font-size: 22px; }
+  .postal-fullscreen-btn[hidden] { display: none !important; }
 
   /* Status messages */
   #status-msg {
@@ -202,10 +217,10 @@
   /* --- Navegación: tarjeta de detalle / sheet --- */
   .postal-navigation-panel {
     position: absolute; z-index: 5;
-    top: calc(12px + env(safe-area-inset-top, 0px));
+    top: calc(70px + env(safe-area-inset-top, 0px));
     left: calc(12px + env(safe-area-inset-left, 0px));
     width: min(320px, calc(100% - 24px));
-    max-height: calc(100% - 24px - env(safe-area-inset-top, 0px));
+    max-height: calc(100% - 82px - env(safe-area-inset-top, 0px));
     display: flex; flex-direction: column;
     background: #E2E2D8; color: #232320;
     border-radius: 14px; overflow: hidden;
@@ -345,11 +360,19 @@
       bottom: calc(16px + env(safe-area-inset-bottom, 0px));
     }
     .postal-route-progress {
-      top: 10px;
+      top: 56px;
       right: 10px;
       padding: 6px 10px;
       font-size: 10px;
     }
+    .postal-fullscreen-btn {
+      top: 10px;
+      right: 10px;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+    }
+    .postal-fullscreen-btn .material-symbols-outlined { font-size: 19px; }
     .postal-back-btn {
       top: 10px;
       left: 10px;
@@ -465,6 +488,9 @@
 <div id="postal-route-progress" class="postal-route-progress" hidden>
   <span id="postal-route-progress-text"></span>
 </div>
+<button id="postal-fullscreen-btn" class="postal-fullscreen-btn" type="button" hidden>
+  <span class="material-symbols-outlined" aria-hidden="true">fullscreen</span>
+</button>
 
 <div id="status-msg">
   <h2 id="status-title"></h2>
@@ -589,7 +615,9 @@ const UI_TEXT = {
     searchPlaceholder: 'Buscar un lugar...',
     noResults: 'Sin resultados',
     tabInfo: 'Información',
-    tabVideo: 'Media'
+    tabVideo: 'Escucha',
+    fullscreen: 'Pantalla completa',
+    exitFullscreen: 'Salir de pantalla completa'
   },
   en: {
     loading: 'Loading data...',
@@ -606,7 +634,9 @@ const UI_TEXT = {
     searchPlaceholder: 'Search a place...',
     noResults: 'No results',
     tabInfo: 'Info',
-    tabVideo: 'Media'
+    tabVideo: 'Listen',
+    fullscreen: 'Fullscreen',
+    exitFullscreen: 'Exit fullscreen'
   }
 };
 
@@ -2385,6 +2415,48 @@ function handleArrivalAtStop(spot, lang) {
 
 /* ====================== fin bloque de ruta guiada ====================== */
 
+/* =========================================================================
+ * PANTALLA COMPLETA — usa la Fullscreen API del navegador; si algún iframe
+ * padre (p. ej. el embed de Framer) no delega el permiso, el botón se oculta.
+ * ========================================================================= */
+
+function isFullscreen() {
+  return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function updateFullscreenButton(lang) {
+  const button = document.getElementById('postal-fullscreen-btn');
+  const icon = button.querySelector('.material-symbols-outlined');
+  const active = isFullscreen();
+  icon.textContent = active ? 'fullscreen_exit' : 'fullscreen';
+  const label = active ? text('exitFullscreen', lang) : text('fullscreen', lang);
+  button.title = label;
+  button.setAttribute('aria-label', label);
+}
+
+function toggleFullscreen() {
+  if (isFullscreen()) {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit) exit.call(document);
+    return;
+  }
+  const el = document.documentElement;
+  const request = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (request) request.call(el);
+}
+
+function setupFullscreenButton(lang) {
+  const button = document.getElementById('postal-fullscreen-btn');
+  const supported = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+  if (!supported) return;
+
+  button.hidden = false;
+  updateFullscreenButton(lang);
+  button.addEventListener('click', toggleFullscreen);
+  document.addEventListener('fullscreenchange', () => updateFullscreenButton(lang));
+  document.addEventListener('webkitfullscreenchange', () => updateFullscreenButton(lang));
+}
+
 const state = { activeSpot: null, spots: [] };
 
 async function init() {
@@ -2398,6 +2470,8 @@ async function init() {
   const startRouteButton = document.getElementById('postal-start-route-btn');
   startRouteButton.querySelector('.postal-start-route-btn__label').textContent = navText('startRoute', lang);
   startRouteButton.addEventListener('click', () => { startGuidedRoute(lang); });
+
+  setupFullscreenButton(lang);
 
   searchEls.input.setAttribute('placeholder', text('searchPlaceholder', lang));
   searchEls.input.addEventListener('input', () => {
