@@ -863,7 +863,7 @@ function getGeolocationProvider() {
 
 window.addEventListener('message', function (event) {
   const data = event.data;
-  if (event.source !== window.parent ||
+  if (event.source !== window.top ||
       !data || data.source !== GEO_MESSAGE_SOURCE ||
       data.version !== GEO_PROTOCOL_VERSION) return;
 
@@ -896,7 +896,10 @@ function getParentTargetOrigin() {
 }
 
 function postGeoMessage(payload) {
-  window.parent.postMessage(
+  /* window.top (no window.parent): entre route-map.html y la página real de Framer hay un
+     iframe intermedio que Framer genera solo y que no podemos scriptear. window.top salta
+     directo a la página de arriba, que es donde sí podemos agregar el script que responde. */
+  window.top.postMessage(
     { ...payload, source: GEO_MESSAGE_SOURCE, version: GEO_PROTOCOL_VERSION },
     getParentTargetOrigin()
   );
@@ -904,7 +907,7 @@ function postGeoMessage(payload) {
 
 function requestParentUserPosition() {
   return new Promise((resolve, reject) => {
-    if (!window.parent || window.parent === window) { reject({ type: 'unsupported' }); return; }
+    if (!window.top || window.top === window) { reject({ type: 'unsupported' }); return; }
     const requestId = 'geo-' + (++geoRequestCounter) + '-' + Date.now();
     const timer = setTimeout(() => {
       if (!pendingGeoRequests[requestId]) return;
@@ -969,7 +972,7 @@ function getCurrentUserPosition() {
   }
 
   const attempts = [requestDirectUserPosition()];
-  if (window.parent && window.parent !== window) {
+  if (window.top && window.top !== window) {
     attempts.push(requestParentUserPosition());
   }
   return firstSuccessfulPosition(attempts);
@@ -1951,7 +1954,7 @@ function checkArrival(coords, lang) {
 
 function stopLocationTracking() {
   if (navigationState.watchId !== null) {
-    if (window.parent && window.parent !== window) {
+    if (window.top && window.top !== window) {
       postGeoMessage({ type: 'watchStop', watchKey: navigationState.watchId });
     }
     navigationState.watchId = null;
@@ -1994,7 +1997,7 @@ function startLocationTracking(lang) {
      getCurrentUserPosition(): si el padre (Framer) no implementa el protocolo de relay, el
      watch directo sigue funcionando cuando el permiso de geolocalización sí está delegado
      al iframe. stopLocationTracking() ya limpia las dos, así que aquí no hace falta elegir. */
-  if (window.parent && window.parent !== window) {
+  if (window.top && window.top !== window) {
     const watchKey = 'watch-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     navigationState.watchId = watchKey;
     postGeoMessage({ type: 'watchStart', watchKey });
