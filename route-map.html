@@ -72,9 +72,11 @@
   }
   .postal-route-progress[hidden] { display: none !important; }
 
-  /* Botón de pantalla completa: mismo estilo "glass" que el botón atrás/filtro */
+  /* Botón de pantalla completa: mismo estilo "glass" que el botón atrás/filtro.
+     Va en la esquina superior izquierda (el slot donde va el filtro en el mapa premium/free)
+     para no superponerse con el borde derecho de la barra de búsqueda. */
   .postal-fullscreen-btn {
-    position: absolute; z-index: 4; top: 14px; right: 14px;
+    position: absolute; z-index: 4; top: 14px; left: 14px;
     width: 42px; height: 42px; border: none; border-radius: 12px;
     background: rgba(34, 35, 32, 0.52); color: #E2E2D8;
     backdrop-filter: blur(8px);
@@ -130,9 +132,10 @@
     line-height: 1;
   }
 
-  /* Botón "atrás": vuelve de la ruta al detalle del spot, o del detalle al mapa */
+  /* Botón "atrás": vuelve de la ruta al detalle del spot, o del detalle al mapa.
+     Va debajo del botón de pantalla completa (que ahora ocupa el slot superior izquierdo). */
   .postal-back-btn {
-    position: absolute; top: 14px; left: 14px; z-index: 3;
+    position: absolute; top: 64px; left: 14px; z-index: 3;
     width: 42px; height: 42px; border: none; border-radius: 12px;
     background: rgba(34, 35, 32, 0.52); color: #E2E2D8;
     backdrop-filter: blur(8px);
@@ -367,14 +370,14 @@
     }
     .postal-fullscreen-btn {
       top: 10px;
-      right: 10px;
+      left: 10px;
       width: 38px;
       height: 38px;
       border-radius: 10px;
     }
     .postal-fullscreen-btn .material-symbols-outlined { font-size: 19px; }
     .postal-back-btn {
-      top: 10px;
+      top: 56px;
       left: 10px;
       width: 38px;
       height: 38px;
@@ -1987,11 +1990,14 @@ function startLocationTracking(lang) {
   stopLocationTracking();
   currentTrackingLang = lang;
 
+  /* Se piden ambas vías a la vez (relay al padre + watch directo del navegador), igual que
+     getCurrentUserPosition(): si el padre (Framer) no implementa el protocolo de relay, el
+     watch directo sigue funcionando cuando el permiso de geolocalización sí está delegado
+     al iframe. stopLocationTracking() ya limpia las dos, así que aquí no hace falta elegir. */
   if (window.parent && window.parent !== window) {
     const watchKey = 'watch-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     navigationState.watchId = watchKey;
     postGeoMessage({ type: 'watchStart', watchKey });
-    return;
   }
 
   const provider = getGeolocationProvider();
